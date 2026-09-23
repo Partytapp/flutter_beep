@@ -1,10 +1,13 @@
+// Sound ID constants mirror the platform names (ToneGenerator / AudioServices); renaming them would break the public API.
+// ignore_for_file: constant_identifier_names
+
 import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'dart:io' show Platform;
 
 class FlutterBeep {
-  static const MethodChannel _channel = const MethodChannel('flutter_beep');
+  static const MethodChannel _channel = MethodChannel('flutter_beep');
 
   /// Plays a system sound with optional parameters
   ///
@@ -20,8 +23,8 @@ class FlutterBeep {
   }) async {
     var args = <String, dynamic>{
       "soundId": soundId,
-      if (volume != null) "volume": volume,
-      if (duration != null) "duration": duration,
+      "volume": ?volume,
+      "duration": ?duration,
       if (vibrate) "vibrate": vibrate,
     };
     if (Platform.isAndroid) await _channel.invokeMethod('stopSysSound');
@@ -215,7 +218,7 @@ class FlutterBeep {
 
   /// Plays a sequence of helper method sounds
   ///
-  /// [soundMethods] - List of Future<void> Function() to execute in sequence
+  /// [soundMethods] - List of `Future<void> Function()` to execute in sequence
   /// [delayMs] - Delay in milliseconds between sounds (default: 200ms)
   static Future<void> playMethodSequence(
     List<Future<void> Function()> soundMethods, {
