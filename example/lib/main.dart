@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_beep/flutter_beep.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -18,7 +20,7 @@ class MyApp extends StatelessWidget {
 }
 
 class BeepDemoPage extends StatefulWidget {
-  const BeepDemoPage({Key? key}) : super(key: key);
+  const BeepDemoPage({super.key});
 
   @override
   State<BeepDemoPage> createState() => _BeepDemoPageState();
