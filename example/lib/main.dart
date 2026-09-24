@@ -140,7 +140,7 @@ class _BeepDemoPageState extends State<BeepDemoPage> {
             [
               _buildButton(
                 "Play DTMF Tones",
-                () => FlutterBeep.playSequence(BeepCategory.dtmfTones, delayMs: 200),
+                () => FlutterBeep.playSequence(BeepCategory.dtmfTones, delayMs: 200, duration: 150),
               ),
               _buildButton(
                 "Play Notifications",

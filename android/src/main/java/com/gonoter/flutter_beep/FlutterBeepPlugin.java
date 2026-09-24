@@ -1,9 +1,11 @@
 package com.gonoter.flutter_beep;
 
+import android.content.Context;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
-import android.os.Handler;
-import android.os.Looper;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 
 import androidx.annotation.NonNull;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -14,8 +16,16 @@ import io.flutter.plugin.common.MethodChannel.Result;
 
 /** FlutterBeepPlugin */
 public class FlutterBeepPlugin implements FlutterPlugin, MethodCallHandler {
+  /**
+   * Cap for tones that ToneGenerator defines as continuous (DTMF, dial, busy, ring, error...).
+   * ToneGenerator plays min(duration, intrinsic length), so finite tones keep their own length.
+   */
+  private static final int DEFAULT_DURATION_MS = 1000;
+  private static final int VIBRATION_MS = 200;
+
   private ToneGenerator toneGen;
   private int currentVolume = 100; // Default volume (0-100)
+  private Context context;
 
   /// The MethodChannel that will the communication between Flutter and native Android
   ///
@@ -25,6 +35,7 @@ public class FlutterBeepPlugin implements FlutterPlugin, MethodCallHandler {
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
+    context = flutterPluginBinding.getApplicationContext();
     channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "flutter_beep");
     channel.setMethodCallHandler(this);
     toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, currentVolume);
@@ -36,15 +47,14 @@ public class FlutterBeepPlugin implements FlutterPlugin, MethodCallHandler {
       int soundId = call.argument("soundId");
       Integer duration = call.argument("duration");
       Integer volume = call.argument("volume");
+      Boolean vibrate = call.argument("vibrate");
 
       if (volume != null && volume != currentVolume) {
         setVolume(volume);
       }
-
-      if (duration != null && duration > 0) {
-        playSysSoundWithDuration(soundId, duration);
-      } else {
-        playSysSound(soundId);
+      playSysSound(soundId, duration != null && duration > 0 ? duration : DEFAULT_DURATION_MS);
+      if (Boolean.TRUE.equals(vibrate)) {
+        vibrate();
       }
       result.success(true);
     } else if (call.method.equals("stopSysSound")) {
@@ -53,6 +63,9 @@ public class FlutterBeepPlugin implements FlutterPlugin, MethodCallHandler {
     } else if (call.method.equals("setVolume")) {
       int volume = call.argument("volume");
       setVolume(volume);
+      result.success(true);
+    } else if (call.method.equals("vibrate")) {
+      vibrate();
       result.success(true);
     } else {
       result.notImplemented();
@@ -68,13 +81,7 @@ public class FlutterBeepPlugin implements FlutterPlugin, MethodCallHandler {
     }
   }
 
-  private void playSysSound(int soundID) {
-    if (toneGen != null) {
-      toneGen.startTone(soundID);
-    }
-  }
-
-  private void playSysSoundWithDuration(int soundID, int durationMs) {
+  private void playSysSound(int soundID, int durationMs) {
     if (toneGen != null) {
       toneGen.startTone(soundID, durationMs);
     }
@@ -95,5 +102,17 @@ public class FlutterBeepPlugin implements FlutterPlugin, MethodCallHandler {
       toneGen.release();
     }
     toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, currentVolume);
+  }
+
+  private void vibrate() {
+    Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+    if (vibrator == null || !vibrator.hasVibrator()) {
+      return;
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      vibrator.vibrate(VibrationEffect.createOneShot(VIBRATION_MS, VibrationEffect.DEFAULT_AMPLITUDE));
+    } else {
+      vibrator.vibrate(VIBRATION_MS);
+    }
   }
 }

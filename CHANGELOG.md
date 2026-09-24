@@ -3,6 +3,10 @@
 * Android: Kotlin DSL build scripts, AGP 9.1.0, compileSdk 36, minSdk 24, Java 17
 * iOS: plugin rewritten in Swift with Swift Package Manager support, minimum iOS 15.0
 * Example app regenerated from the current Flutter template
+* Fixed Android tones that never stopped: continuous tones (DTMF, dial, busy, ring, error...) now stop after 1 s unless `duration` is given
+* Fixed `stopRecording()` being silent and `vibrate()` not vibrating on Android; `playSysSound(vibrate: true)` now vibrates on Android too
+* Remapped `success()` and `error()` on iOS to the SIM toolkit ACK sounds and `warning()` to a short soft-error tone on Android and the USSD alert on iOS; `countdownSequence()` plays DTMF 3-2-1 on iOS
+* `playSequence()` accepts a `duration`
 
 ## 1.1.0
 * Upgraded Android dependencies

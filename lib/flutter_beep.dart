@@ -13,8 +13,11 @@ class FlutterBeep {
   ///
   /// [soundId] - The system sound ID to play
   /// [volume] - Volume level (0-100), only supported on Android
-  /// [duration] - Duration in milliseconds, only supported on Android
-  /// [vibrate] - Whether to vibrate while playing the sound (iOS only uses this for alert sounds)
+  /// [duration] - Duration in milliseconds, only supported on Android. Tones
+  /// that Android defines as continuous (DTMF, dial, busy, ring, error...) stop
+  /// after 1000 ms unless a duration is given; finite tones keep their own length.
+  /// [vibrate] - Whether to vibrate while playing the sound (Android: system
+  /// vibrator, iOS: the sound is played as an alert sound)
   static Future<void> playSysSound(
     int soundId, {
     int? volume,
@@ -38,20 +41,18 @@ class FlutterBeep {
     }
   }
 
-  /// Vibrates the device
-  static Future<void> vibrate() async {
-    if (Platform.isIOS) {
-      return _channel.invokeMethod('vibrate');
-    } else if (Platform.isAndroid) {
-      // On Android, use a very short tone with vibration
-      return playSysSound(AndroidSoundIDs.TONE_PROP_BEEP, duration: 1);
-    }
-  }
+  /// Vibrates the device (Android: 200 ms, iOS: system vibration)
+  static Future<void> vibrate() => _channel.invokeMethod('vibrate');
 
-  /// Plays a beep sound (legacy method for backwards compatibility)
+  /// Plays a beep sound (legacy method, same sounds since 1.0.0)
   static Future<void> beep([bool success = true]) {
-    var soundId =
-        (Platform.isAndroid) ? (success ? 24 : 25) : (success ? 1256 : 1257);
+    var soundId = Platform.isAndroid
+        ? (success
+            ? AndroidSoundIDs.TONE_PROP_BEEP
+            : AndroidSoundIDs.TONE_PROP_ACK)
+        : (success
+            ? iOSSoundIDs.Headset_AnswerCall
+            : iOSSoundIDs.Headset_EndCall);
     return playSysSound(soundId);
   }
 
@@ -61,7 +62,7 @@ class FlutterBeep {
   static Future<void> success() {
     var soundId = Platform.isAndroid
         ? AndroidSoundIDs.TONE_PROP_ACK
-        : iOSSoundIDs.Headset_AnswerCall;
+        : iOSSoundIDs.SIMToolkitTone4; // SIMToolkitPositiveACK.caf
     return playSysSound(soundId);
   }
 
@@ -69,15 +70,15 @@ class FlutterBeep {
   static Future<void> error() {
     var soundId = Platform.isAndroid
         ? AndroidSoundIDs.TONE_PROP_NACK
-        : iOSSoundIDs.AudioToneError;
+        : iOSSoundIDs.SIMToolkitTone3; // SIMToolkitNegativeACK.caf
     return playSysSound(soundId);
   }
 
   /// Plays a warning sound
   static Future<void> warning() {
     var soundId = Platform.isAndroid
-        ? AndroidSoundIDs.TONE_SUP_ERROR
-        : iOSSoundIDs.LowPower;
+        ? AndroidSoundIDs.TONE_CDMA_SOFT_ERROR_LITE
+        : iOSSoundIDs.USSDAlert; // ussd.caf
     return playSysSound(soundId);
   }
 
@@ -132,7 +133,7 @@ class FlutterBeep {
   /// Plays a stop recording sound
   static Future<void> stopRecording() {
     var soundId = Platform.isAndroid
-        ? AndroidSoundIDs.TONE_CDMA_ANSWER
+        ? AndroidSoundIDs.TONE_CDMA_CALLDROP_LITE
         : iOSSoundIDs.EndRecording;
     return playSysSound(soundId);
   }
@@ -142,7 +143,7 @@ class FlutterBeep {
     var soundId = Platform.isAndroid
         ? AndroidSoundIDs.TONE_SUP_BUSY
         : iOSSoundIDs.AudioToneBusy;
-    return playSysSound(soundId);
+    return playSysSound(soundId, duration: 2000);
   }
 
   /// Plays a call waiting sound
@@ -158,7 +159,7 @@ class FlutterBeep {
     var soundId = Platform.isAndroid
         ? AndroidSoundIDs.TONE_SUP_RINGTONE
         : iOSSoundIDs.VCRinging;
-    return playSysSound(soundId);
+    return playSysSound(soundId, duration: 2000);
   }
 
   /// Plays a mail received sound
@@ -207,10 +208,15 @@ class FlutterBeep {
   ///
   /// [sounds] - List of sound IDs to play
   /// [delayMs] - Delay in milliseconds between sounds (default: 200ms)
-  static Future<void> playSequence(List<int> sounds, {int delayMs = 200}) async {
-    for (var soundId in sounds) {
-      await playSysSound(soundId);
-      if (sounds.indexOf(soundId) < sounds.length - 1) {
+  /// [duration] - Duration of each sound in milliseconds (Android only)
+  static Future<void> playSequence(
+    List<int> sounds, {
+    int delayMs = 200,
+    int? duration,
+  }) async {
+    for (var i = 0; i < sounds.length; i++) {
+      await playSysSound(sounds[i], duration: duration);
+      if (i < sounds.length - 1) {
         await Future.delayed(Duration(milliseconds: delayMs));
       }
     }
@@ -244,19 +250,19 @@ class FlutterBeep {
 
   /// Plays a countdown sequence (3, 2, 1)
   static Future<void> countdownSequence() {
-    if (Platform.isAndroid) {
-      return playSequence([
-        AndroidSoundIDs.TONE_DTMF_3,
-        AndroidSoundIDs.TONE_DTMF_2,
-        AndroidSoundIDs.TONE_DTMF_1,
-      ], delayMs: 1000);
-    } else {
-      return playSequence([
-        iOSSoundIDs.TouchTone3,
-        iOSSoundIDs.TouchTone2,
-        iOSSoundIDs.TouchTone1,
-      ], delayMs: 1000);
-    }
+    // iOS TouchToneN plays dtmf-(N-1).caf
+    final sounds = Platform.isAndroid
+        ? [
+            AndroidSoundIDs.TONE_DTMF_3,
+            AndroidSoundIDs.TONE_DTMF_2,
+            AndroidSoundIDs.TONE_DTMF_1,
+          ]
+        : [
+            iOSSoundIDs.TouchTone4,
+            iOSSoundIDs.TouchTone3,
+            iOSSoundIDs.TouchTone2,
+          ];
+    return playSequence(sounds, delayMs: 1000, duration: 400);
   }
 }
 
@@ -315,7 +321,7 @@ class BeepCategory {
           iOSSoundIDs.AudioToneError,
           iOSSoundIDs.LowPower,
           iOSSoundIDs.USSDAlert,
-          iOSSoundIDs.FailedUnlock,
+          iOSSoundIDs.SIMToolkitTone3, // 1102 FailedUnlock has no sound file
         ];
 
   /// Success/acknowledgment sounds
